@@ -89,6 +89,24 @@ app.delete("/api/v1/cliente/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+app.patch("/api/v1/clientes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, email, telefone } = req.body;
+    const connection = await mysql.createConnection(dbConfig);
+
+    await connection.execute(
+      "update clientes set nome = ?, email = ?, telefone = ? where id = ?",
+      [nome, email, telefone, id]
+    );
+
+    await connection.end();
+
+    res.send("Cliente alterado com sucesso!");
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.listen(PORT, () => {
   console.log("servidor na porta $(PORT)");
 });
