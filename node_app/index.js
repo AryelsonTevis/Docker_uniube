@@ -1,8 +1,12 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
+const jtw = require("jsonwebtoken");
 
 const app = express();
 const PORT = 3001;
+
+const JWT_SECERT = "3ba6d3a2cb6fe353048166563ee34b54";
+const API_KEY = "1ba47064494cc437b385dec68747a9487cbcfecd";
 app.use(express.json());
 // Configuração do MySQL (igual ao docker-compose)
 const dbConfig = {
@@ -11,11 +15,36 @@ const dbConfig = {
   password: "apppass",
   database: "appdb",
 };
+function authenticateJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+
+  const token = authHeader.split(" ")[1]; // formato: "Bearer <token>"
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Token inválido ou expirado" });
+    }
+    req.user = user; // payload do JWT
+    next();
+  });
+}
 
 app.get("/", (req, res) => {
   res.json({ message: "Node.js está rodando no Docker!" });
 });
-
+app.post("/auth", (req, res) => {
+  const apikey = req.body.API_KEY;
+  if (apikey !== API_KEY) {
+    return res.status(403).jason({ erroo: "API key invalida" });
+  }
+  const payload = { role: "adimin", name: "API User" };
+  const token = jwt.sing(payload, JWT_SECERT, { expiresIn: "1h" });
+  res.json({ token });
+});
 app.get("/api/v1/clientes/:id", async (req, res) => {
   try {
     const cliente = req.params.id;
