@@ -6,7 +6,7 @@ const app = express();
 const PORT = 3001;
 
 const JWT_SECERT = "3ba6d3a2cb6fe353048166563ee34b54";
-const API_KEY = "1ba47064494cc437b385dec68747a9487cbcfecd";
+const API_KEY = "d190981dh0891h0dihasoidhoiwh01ihd01ihd";
 app.use(express.json());
 // Configuração do MySQL (igual ao docker-compose)
 const dbConfig = {
@@ -32,6 +32,20 @@ function authenticateJWT(req, res, next) {
     next();
   });
 }
+app.post("/auth", (req, res) => {
+  const { apiKey } = req.body;
+
+  if (apiKey !== API_KEY) {
+    return res.status(403).json({ error: "API Key inválida" });
+  }
+
+  // Aqui você pode incluir dados do usuário, permissões, etc.
+  const payload = { role: "admin", name: "API User" };
+
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: "1h" });
+
+  res.json({ token });
+});
 
 app.get("/", (req, res) => {
   res.json({ message: "Node.js está rodando no Docker!" });
@@ -70,6 +84,17 @@ app.get("/api/v1/clientes", async (req, res) => {
   }
 });
 
+app.get("/api/v1/clientes", authenticateJWT, async (req, res) => {
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [rows] = await connection.execute("SELECT * FROM clientes");
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/v1/cliente", async (req, res) => {
   try {
     const { nome, email, telefone } = req.body;
@@ -98,6 +123,54 @@ app.post("/api/v1/cliente", async (req, res) => {
   }
 });
 
+app.post("/api/v1/cliente", authenticateJWT, async (req, res) => {
+  try {
+    const { nome, email, telefone } = req.body;
+
+    if (!nome || !email || !telefone) {
+      return res
+        .status(400)
+        .json({ error: "Campos obrigatórios: nome, email, telefone" });
+    }
+
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.execute(
+      "INSERT INTO clientes (nome, email, telefone) VALUES (?, ?, ?)",
+      [nome, email, telefone]
+    );
+
+    await connection.end();
+
+    res.status(201).json({
+      message: "Cliente criado com sucesso!",
+      clienteId: result.insertId,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/api/v1/cliente/:id", authenticateJWT, async (req, res) => {
+  try {
+    const cliente = req.params.id;
+
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.execute("delete from vendas where cliente_id = ?", [
+      cliente,
+    ]);
+
+    const [rows] = await connection.execute(
+      "delete from clientes where id = ?",
+      [cliente]
+    );
+
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.delete("/api/v1/cliente/:id", async (req, res) => {
   try {
     const cliente = req.params.id;
